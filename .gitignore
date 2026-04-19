@@ -1,0 +1,18 @@
+# Pacotes gerados e diretórios de build
+*.deb
+cryomint_*_amd64/
+
+# Ambientes virtuais Python
+venv/
+env/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Arquivos de sistema operacional e IDEs
+.vscode/
+.idea/
+.DS_Store
+*~
