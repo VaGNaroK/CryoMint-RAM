@@ -1,25 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🔍 Detectando versão..."
+echo "============================================"
+echo "            CryoMint Build Script (v2)      "
+echo "============================================"
 
+# =============================================================
+# PASSO 1: DETECÇÃO DE VERSÃO
+# =============================================================
 VERSION=""
-if grep -q '__version__' src/main.py 2>/dev/null; then
-    VERSION=$(grep -oP '__version__\s*=\s*["'\'']\K[0-9]+\.[0-9]+\.[0-9]+' src/main.py | head -n 1)
+# Agora o 'if' também procura em todos os arquivos .py da pasta src
+if grep -q '__version__' src/*.py 2>/dev/null; then
+    VERSION=$(grep -h -oP "__version__\s*=\s*[\"']\K[^\"']+" src/*.py | head -n 1)
 fi
-if [ -z "$VERSION" ]; then
-    VERSION=$(perl -CSD -ne 'print $1 if /CryoMint\s+v?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/' src/main.py | head -n 1)
-fi
+
 [ -z "$VERSION" ] && VERSION="1.0.1"
-VERSION=$(echo "$VERSION" | sed 's/[^0-9.]//g')
 
-echo "📦 Versão: $VERSION"
+echo "📦 Versão Detectada (via __version__): $VERSION"
 PKG_NAME="cryomint_${VERSION}_amd64"
-echo "📦 Pacote: ${PKG_NAME}.deb"
+echo "📦 Pacote de saída: ${PKG_NAME}.deb"
 
+# Limpeza anterior
 rm -rf "${PKG_NAME}"
 
-# Estrutura
+# =============================================================
+# PASSO 2: ESTRUTURA DE DIRETÓRIOS
+# =============================================================
 mkdir -p "${PKG_NAME}/DEBIAN"
 mkdir -p "${PKG_NAME}/opt/cryomint/src"
 mkdir -p "${PKG_NAME}/opt/cryomint/assets"
@@ -29,15 +35,22 @@ mkdir -p "${PKG_NAME}/etc/profile.d"
 mkdir -p "${PKG_NAME}/etc/systemd/user"
 mkdir -p "${PKG_NAME}/var/log/cryomint"
 
-# Fontes e assets
+# =============================================================
+# PASSO 3: COPIAR ARQUIVOS E CONFIGURAR PERMISSÕES
+# =============================================================
 cp src/main.py "${PKG_NAME}/opt/cryomint/src/"
 cp src/cryo_core.py "${PKG_NAME}/opt/cryomint/src/"
+
 [ -d "assets" ] && cp -a assets/* "${PKG_NAME}/opt/cryomint/assets/" 2>/dev/null || true
 
 chmod 755 "${PKG_NAME}/opt/cryomint/src"
 chmod 644 "${PKG_NAME}/opt/cryomint/src/"*.py
 
-# Control
+echo "✅ Arquivos copiados e permissões definidas."
+
+# =============================================================
+# PASSO 4: DEBIAN CONTROL FILE
+# =============================================================
 cat <<EOF > "${PKG_NAME}/DEBIAN/control"
 Package: cryomint
 Version: ${VERSION}
@@ -50,28 +63,54 @@ Description: CryoMint RAM Edition - Congelamento de estado usando tmpfs e Swap d
  Sistema imutável para proteção de estado de laboratórios.
 EOF
 
-# Postinst
+echo "✅ Control file criado."
+
+# =============================================================
+# PASSO 5: POSTINST SCRIPT (CRÍTICO)
+# =============================================================
 cat <<'EOF' > "${PKG_NAME}/DEBIAN/postinst"
 #!/bin/bash
 set -e
 
 echo "⚙️ Configurando CryoMint..."
+INSTALL_DIR="/opt/cryomint"
+VENV_PATH="$INSTALL_DIR/venv"
 
-# Venv isolado
-python3 -m venv --system-site-packages /opt/cryomint/venv
-/opt/cryomint/venv/bin/pip install --no-cache-dir PySide6
+# 1. Setup do Ambiente Virtual (Venv)
+if [ ! -d "$VENV_PATH" ]; then
+    echo "-> Criando ambiente virtual Python em $VENV_PATH..."
+    python3 -m venv "$VENV_PATH" || { echo "ERRO: Falha ao criar Venv. Verifique o python3."; exit 1; }
+fi
 
-# Permissões
+# 2. Instalação de Dependências
+echo "-> Instalando dependências Python (PySide6 e outras)..."
+pip_cmd="$VENV_PATH/bin/pip"
+
+DEPENDENCIES="PySide6" 
+
+if ! $pip_cmd install --no-cache-dir $DEPENDENCIES; then
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "ERRO FATAL DE DEPENDÊNCIA PYTHON:" >&2
+    echo "Falha ao instalar um ou mais pacotes Python necessários." >&2
+    echo "Por favor, verifique os pacotes listados em 'DEPENDENCIES' no script build_deb.sh." >&2
+    exit 1
+fi
+
+# 3. Permissões de Código
 chmod 755 /opt/cryomint/src/cryo_core.py
 chmod 644 /opt/cryomint/src/main.py
 
-# Diretórios de lock e log
+# 4. Diretórios do Sistema e Locks
+echo "-> Configurando diretórios de lock e log..."
 mkdir -p /run/lock
+chown root:root /run/lock
 chmod 1777 /run/lock
+
 mkdir -p /var/log/cryomint
 chmod 755 /var/log/cryomint
 
-# Udev rules
+# 5. Udev Rules
+echo "-> Verificando regras Udev..."
 ROOT_UUID=$(findmnt / -n -o UUID 2>/dev/null || true)
 if [ -n "$ROOT_UUID" ]; then
     mkdir -p /etc/udev/rules.d/
@@ -81,11 +120,13 @@ UDEV
     udevadm control --reload-rules 2>/dev/null || true
 fi
 
-echo "✅ CryoMint v$(dpkg-query -W -f='${Version}' cryomint) instalado."
+echo "✅ CryoMint v$(dpkg-query -W -f='${Version}' cryomint) instalado com sucesso."
 EOF
 chmod 755 "${PKG_NAME}/DEBIAN/postinst"
 
-# Postrm
+# =============================================================
+# PASSO 6: POSTRM SCRIPT (Limpeza)
+# =============================================================
 cat <<'EOF' > "${PKG_NAME}/DEBIAN/postrm"
 #!/bin/bash
 set -e
@@ -103,16 +144,21 @@ exit 0
 EOF
 chmod 755 "${PKG_NAME}/DEBIAN/postrm"
 
-# Executável
+# =============================================================
+# PASSO 7: EXECUTÁVEL E SCRIPTS DE ENTORNE
+# =============================================================
 cat <<'EOF' > "${PKG_NAME}/usr/bin/cryomint"
 #!/bin/bash
 set -e
+
+# Tentativa de ajuste de tema do Nemo
 gsettings set org.nemo.desktop volumes-visible false 2>/dev/null || true
+
 exec /opt/cryomint/venv/bin/python /opt/cryomint/src/main.py "$@"
 EOF
 chmod 755 "${PKG_NAME}/usr/bin/cryomint"
 
-# Desktop entry (apenas menu, NÃO autostart)
+# Desktop entry
 cat <<EOF > "${PKG_NAME}/usr/share/applications/cryomint.desktop"
 [Desktop Entry]
 Name=CryoMint
@@ -124,7 +170,7 @@ StartupNotify=true
 StartupWMClass=CryoMint
 EOF
 
-# Systemd user service e timer
+# Systemd Services
 cat <<EOF > "${PKG_NAME}/etc/systemd/user/cryomint-tray.service"
 [Unit]
 Description=CryoMint System Tray
@@ -153,11 +199,11 @@ AccuracySec=1s
 WantedBy=timers.target
 EOF
 
-# --- ATIVAÇÃO AUTOMÁTICA PARA TODOS OS USUÁRIOS ---
+# =============================================================
+# PASSO 8: ATIVAÇÃO AUTOMÁTICA
+# =============================================================
 cat <<'EOF' > "${PKG_NAME}/etc/profile.d/cryomint-autostart.sh"
 #!/bin/bash
-# Ativa timer CryoMint para todo usuário humano no login gráfico
-
 if [ "$(id -u)" -ge 1000 ] && [ -n "${DISPLAY:-}" ]; then
     TIMER_LINK="$HOME/.config/systemd/user/default.target.wants/cryomint-tray.timer"
     TIMER_SRC="/etc/systemd/user/cryomint-tray.timer"
@@ -172,12 +218,18 @@ fi
 EOF
 chmod 644 "${PKG_NAME}/etc/profile.d/cryomint-autostart.sh"
 
-# Build
-echo "🛠️ Construindo..."
-dpkg-deb --build "${PKG_NAME}"
-echo "✅ ${PKG_NAME}.deb gerado!"
+# =============================================================
+# PASSO FINAL: BUILD E OUTPUT
+# =============================================================
 echo ""
-echo "📖 LOGS:"
-echo "   UI:  cat ~/.local/share/cryomint/logs/cryomint_ui.log"
-echo "   Core: sudo cat /var/log/cryomint/core.log"
-echo "   Ou:  sudo journalctl -t CryoMint-UI -t CryoMint-Core -f"
+echo "--------------------------------------------"
+echo "🛠️ Iniciando a construção do pacote DEB..."
+dpkg-deb --build "${PKG_NAME}"
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ SUCESSO: ${PKG_NAME}.deb gerado!"
+else
+    echo ""
+    echo "❌ FALHA FATAL na criação do pacote DEB. Verifique os logs acima."
+fi

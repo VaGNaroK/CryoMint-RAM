@@ -5,6 +5,22 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.0.4] - 2026-05-05
+
+### Adicionado
+- Implementação de Thread Pool (`QThreadPool`) no frontend para execução assíncrona, evitando travamentos da interface (GUI) durante as transições de congelamento/descongelamento.
+- Variável `__version__` adicionada ao topo do `main.py` para sincronização unificada com o construtor do pacote Debian.
+
+### Corrigido
+- Fixação permanente do tema "Dark Mode" blindado, contornando falhas de detecção nativa do ambiente desktop (Cinnamon/Linux Mint) e garantindo a consistência visual.
+- Correção do Tooltip no menu da bandeja (System Tray) que estava ocultando o nome do aplicativo.
+- Resolução do erro de importação da biblioteca `PySide6.QtCore` que impedia a inicialização silenciosa (`--tray-only`) com o sistema.
+- Correção do script `build_deb.sh` que não estava lendo corretamente a versão do Python devido a um conflito de escape de aspas simples no Bash.
+
+### Alterado
+- O script construtor (`build_deb.sh`) agora varre todos os arquivos dentro do diretório `src/` em busca da versão do software.
+- Refatoração do `cryo_core.py` (backend) para retornar mensagens de status em string (stdout) formatadas, substituindo a finalização abrupta com `sys.exit()` e melhorando o feedback visual de falhas.
+
 ## [1.0.1] - 2026-04-23
 ### Adicionado
 - **Prevenção de Múltiplas Instâncias (Singleton):** Implementação de Sockets Unix na interface para impedir a abertura simultânea de múltiplas janelas, enviando sinal para trazer a interface existente ao topo.

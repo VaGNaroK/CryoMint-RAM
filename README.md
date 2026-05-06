@@ -5,6 +5,9 @@ CryoMint é um sistema imutável de proteção de estado para Linux Mint, desenv
 Projetado especificamente para laboratórios de informática e ambientes educacionais, o CryoMint congela a partição raiz (`/`) do sistema operacional. Qualquer alteração feita pelo usuário (instalação de programas, download de arquivos, exclusão de pastas) é registrada em uma camada temporária na memória RAM (`tmpfs`) e descartada automaticamente assim que o computador é reiniciado.
 
 ## 🚀 Funcionalidades
+
+### 📌 Descrição do Projeto
+CryoMint é um sistema imutável de proteção de estado para Linux Mint, desenvolvido com interface gráfica em **PySide6** e motor baseado em **OverlayFS**. Projetado especificamente para laboratórios de informática e ambientes educacionais, o CryoMint congela a partição raiz (`/`) do sistema operacional. Qualquer alteração feita pelo usuário (instalação de programas, download de arquivos, exclusão de pastas) é registrada em uma camada temporária na memória RAM (`tmpfs`) e descartada automaticamente assim que o computador é reiniciado.
 * **Proteção Absoluta:** O HD/SSD principal fica em modo Somente Leitura (Read-Only).
 * **RAM + Swap Architecture:** Utiliza a memória RAM para máxima velocidade nas sessões dos alunos, com suporte a transbordo inteligente para partições Swap (`swap=1`), evitando travamentos por falta de memória.
 * **Interface Intuitiva:** Painel de controle amigável com System Tray para ligar/desligar a proteção e exigir reinicialização.
@@ -18,6 +21,12 @@ Projetado especificamente para laboratórios de informática e ambientes educaci
 * **Polkit (`pkexec`)** (Escalonamento de Privilégios seguro)
 
 ## 📦 Como Compilar
+
+### 📌 Instalação
+1. Clone este repositório: `git clone https://github.com/...`
+2. Instale dependências: `pip install -r requirements.txt`
+3. Execute o script de build: `./build_deb.sh`
+4. Instale o pacote gerado: `sudo apt install ./cryomint_1.0.3_amd64.deb`
 Para compilar o pacote `.deb` instalável:
 1. Clone este repositório.
 2. Dê permissão de execução ao script de build: `chmod +x build_deb.sh`
