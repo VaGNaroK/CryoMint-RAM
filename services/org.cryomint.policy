@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policy.dtd">
+<policyconfig>
+  <vendor>CryoMint</vendor>
+  <vendor_url>https://github.com/VaGNaroK</vendor_url>
+  <icon_name>cryomint</icon_name>
+
+  <action id="org.cryomint.pkexec.cryo_core">
+    <description>Execute CryoMint core actions</description>
+    <message>Autenticação é necessária para alterar o estado do sistema (Congelar/Descongelar).</message>
+    <message xml:lang="pt_BR">Autenticação é necessária para alterar o estado do sistema (Congelar/Descongelar).</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/opt/cryomint/src/cryo_core.py</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_open_tty">true</annotate>
+  </action>
+</policyconfig>

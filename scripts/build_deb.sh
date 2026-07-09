@@ -31,8 +31,9 @@ mkdir -p "${PKG_NAME}/opt/cryomint/src"
 mkdir -p "${PKG_NAME}/opt/cryomint/assets"
 mkdir -p "${PKG_NAME}/usr/share/applications"
 mkdir -p "${PKG_NAME}/usr/bin"
-mkdir -p "${PKG_NAME}/etc/profile.d"
-mkdir -p "${PKG_NAME}/etc/systemd/user"
+mkdir -p "${PKG_NAME}/etc/xdg/autostart"
+mkdir -p "${PKG_NAME}/usr/share/polkit-1/actions"
+mkdir -p "${PKG_NAME}/lib/systemd/system"
 mkdir -p "${PKG_NAME}/var/log/cryomint"
 
 # =============================================================
@@ -40,11 +41,18 @@ mkdir -p "${PKG_NAME}/var/log/cryomint"
 # =============================================================
 cp src/main.py "${PKG_NAME}/opt/cryomint/src/"
 cp src/cryo_core.py "${PKG_NAME}/opt/cryomint/src/"
+cp src/version.py "${PKG_NAME}/opt/cryomint/src/"
+cp services/org.cryomint.policy "${PKG_NAME}/usr/share/polkit-1/actions/"
+cp services/cryomint-maintenance.service "${PKG_NAME}/lib/systemd/system/"
 
 [ -d "assets" ] && cp -a assets/* "${PKG_NAME}/opt/cryomint/assets/" 2>/dev/null || true
 
 chmod 755 "${PKG_NAME}/opt/cryomint/src"
-chmod 644 "${PKG_NAME}/opt/cryomint/src/"*.py
+chmod 755 "${PKG_NAME}/opt/cryomint/src/cryo_core.py"
+chmod 644 "${PKG_NAME}/opt/cryomint/src/main.py"
+chmod 644 "${PKG_NAME}/opt/cryomint/src/version.py"
+chmod 644 "${PKG_NAME}/usr/share/polkit-1/actions/org.cryomint.policy"
+chmod 644 "${PKG_NAME}/lib/systemd/system/cryomint-maintenance.service"
 
 echo "✅ Arquivos copiados e permissões definidas."
 
@@ -99,6 +107,7 @@ fi
 # 3. Permissões de Código
 chmod 755 /opt/cryomint/src/cryo_core.py
 chmod 644 /opt/cryomint/src/main.py
+chmod 644 /opt/cryomint/src/version.py
 
 # 4. Diretórios do Sistema e Locks
 echo "-> Configurando diretórios de lock e log..."
@@ -120,6 +129,11 @@ UDEV
     udevadm control --reload-rules 2>/dev/null || true
 fi
 
+# 6. Habilitar o Serviço Systemd de Manutenção
+echo "-> Configurando serviço systemd de boot..."
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable cryomint-maintenance.service 2>/dev/null || true
+
 echo "✅ CryoMint v$(dpkg-query -W -f='${Version}' cryomint) instalado com sucesso."
 EOF
 chmod 755 "${PKG_NAME}/DEBIAN/postinst"
@@ -133,6 +147,9 @@ set -e
 
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     echo "🧹 Removendo CryoMint..."
+    systemctl disable cryomint-maintenance.service 2>/dev/null || true
+    rm -f /lib/systemd/system/cryomint-maintenance.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
     rm -rf /opt/cryomint 2>/dev/null || true
     rm -f /etc/udev/rules.d/99-hide-cryomint.rules 2>/dev/null || true
     rm -f /etc/profile.d/cryomint-autostart.sh 2>/dev/null || true
@@ -170,53 +187,19 @@ StartupNotify=true
 StartupWMClass=CryoMint
 EOF
 
-# Systemd Services
-cat <<EOF > "${PKG_NAME}/etc/systemd/user/cryomint-tray.service"
-[Unit]
-Description=CryoMint System Tray
-After=graphical-session.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/cryomint --tray-only
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
+# Autostart Desktop entry (inicia oculto na bandeja)
+cat <<EOF > "${PKG_NAME}/etc/xdg/autostart/cryomint.desktop"
+[Desktop Entry]
+Name=CryoMint Tray
+Comment=Iniciar o CryoMint na bandeja do sistema
+Exec=cryomint --tray-only
+Icon=/opt/cryomint/assets/icon.svg
+Type=Application
+Categories=System;Security;
+StartupNotify=false
+Terminal=false
+X-GNOME-Autostart-enabled=true
 EOF
-
-cat <<EOF > "${PKG_NAME}/etc/systemd/user/cryomint-tray.timer"
-[Unit]
-Description=Delay seguro para CryoMint
-
-[Timer]
-OnBootSec=30
-OnUnitActiveSec=0
-AccuracySec=1s
-
-[Install]
-WantedBy=timers.target
-EOF
-
-# =============================================================
-# PASSO 8: ATIVAÇÃO AUTOMÁTICA
-# =============================================================
-cat <<'EOF' > "${PKG_NAME}/etc/profile.d/cryomint-autostart.sh"
-#!/bin/bash
-if [ "$(id -u)" -ge 1000 ] && [ -n "${DISPLAY:-}" ]; then
-    TIMER_LINK="$HOME/.config/systemd/user/default.target.wants/cryomint-tray.timer"
-    TIMER_SRC="/etc/systemd/user/cryomint-tray.timer"
-    
-    if [ ! -L "$TIMER_LINK" ] && [ -f "$TIMER_SRC" ]; then
-        mkdir -p "$(dirname "$TIMER_LINK")"
-        ln -sf "$TIMER_SRC" "$TIMER_LINK"
-        systemctl --user daemon-reload >/dev/null 2>&1 || true
-        systemctl --user start cryomint-tray.timer >/dev/null 2>&1 || true
-    fi
-fi
-EOF
-chmod 644 "${PKG_NAME}/etc/profile.d/cryomint-autostart.sh"
 
 # =============================================================
 # PASSO FINAL: BUILD E OUTPUT

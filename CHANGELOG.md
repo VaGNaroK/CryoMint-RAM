@@ -5,6 +5,30 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.0.5] - 2026-07-08
+
+### Adicionado
+- **Aba Status Expandida:** Barra de progresso (`QProgressBar` estilizado) que calcula dinamicamente o espaço livre/usado na RAM e no Swap do overlay (`/media/root-rw`), com alerta automático via bandeja ao ultrapassar 85% de uso.
+- **Modo de Manutenção:** Novo botão na aba Status que guia o administrador por um fluxo de boot único para alterações persistentes, com caixas de diálogo explicativas e banner de alerta permanente enquanto o modo estiver ativo.
+- **Aba Logs (Nova):** Terminal estilizado (verde/preto) exibindo as últimas 80 linhas dos logs do núcleo (`core.log`) e da interface (`ui.log`), com botões de recarga sob demanda, limpeza do log do usuário e exportação para `.txt`.
+- **Aba Sistema (Nova):** Painel de diagnósticos rápidos do hardware listando Hostname, Endereço IP, versão do SO, modelo do CPU, RAM total, Swap configurado e Uptime da máquina.
+- **Aba Sobre (Reorganizada):** Créditos e informações de empacotamento movidos para aba dedicada, limpando a tela principal.
+- **Backend — Comando `status`:** Retorna JSON estruturado contendo estado do congelamento, marcadores ativos e uso de armazenamento do overlay.
+- **Backend — Comando `maintenance`:** Desativa a imutabilidade gravando `overlayroot=""` no arquivo de configuração e gera o marcador persistente `/etc/cryomint_maintenance_pending`.
+- **Backend — Comando `boot-check`:** Executa durante a inicialização para limpar o marcador de manutenção, reconfigurar o congelamento (`overlayroot="tmpfs:swap=1"`) e criar a flag em RAM `/run/cryomint_in_maintenance` para sinalizar sessão volátil à GUI.
+- **Resiliência Mock:** Interface e backend continuam operando normalmente em ambientes sem Polkit/Linux Mint para facilitar desenvolvimento e testes.
+- **Redimensionamento Dinâmico:** Janela principal ajustada para `500×420` para acomodar as novas abas.
+
+### Corrigido
+- Correção do aviso `QSystemTrayIcon::setVisible: No Icon set` ao iniciar a interface gráfica, atribuindo o ícone antes de exibir a bandeja.
+- Correção do salto de rolagem na aba de Logs ("scroll jumping"), substituindo o `QTextEdit` por `QPlainTextEdit` e desativando a quebra de linha.
+- Tratamento adequado de `PermissionError` ao criar diretórios de log (`/var/log/cryomint`) no módulo `cryo_core.py`, viabilizando a execução de testes locais.
+
+### Alterado
+- Serviço systemd `cryomint-maintenance.service` agora dispara o comando `boot-check` durante a inicialização do sistema (`After=local-fs.target`, `Before=display-manager.service`).
+- `build_deb.sh` atualizado para copiar e configurar permissões (`644`) do serviço systemd e habilitar automaticamente o serviço no `postinst` (`systemctl enable`).
+- Arquivo `org.cryomint.policy` movido para `services/` (local canônico); `build_deb.sh` atualizado para referenciar o novo caminho.
+
 ## [1.0.4] - 2026-05-05
 
 ### Adicionado
