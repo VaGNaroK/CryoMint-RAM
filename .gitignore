@@ -16,3 +16,5 @@ __pycache__/
 .idea/
 .DS_Store
 *~
+cryomint_logs.txt
+sugestoes_melhoria.md
